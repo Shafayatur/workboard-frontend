@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+:root {
+  --paper:      #FAFAF8;
+  --card:       #FFFFFF;
+  --ink:        #17170F;
+  --muted:      #6E6E68;
+  --line:       #1B1B16;
+  --line-soft:  #DEDDD5;
+  --red:        #D6402A;
+  --red-wash:   #FBE3DC;
+  --green:      #2F7A4F;
+  --green-wash: #E1EFE3;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-red: var(--red);
+  --color-red-wash: var(--red-wash);
+  --color-green: var(--green);
+  --color-green-wash: var(--green-wash);
+  --font-display: var(--font-archivo);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+  --font-hand: var(--font-caveat);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), sans-serif;
+}
