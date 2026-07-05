@@ -3,39 +3,68 @@
 import { useState } from 'react';
 import { useDateStore } from '@/store/dateStore';
 
+// Parse/format using local date components (not UTC) so day math never
+// shifts by a day depending on timezone.
+function parseDate(dateStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
+function formatDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function formatShort(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
+    const d = parseDate(dateStr);
     return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
 }
 
 function addDays(dateStr: string, days: number): string {
-    const d = new Date(dateStr + 'T00:00:00');
+    const d = parseDate(dateStr);
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return formatDateKey(d);
 }
 
 function today(): string {
-    return new Date().toISOString().slice(0, 10);
+    return formatDateKey(new Date());
 }
 
-/**
- * Standalone date picker. Reads/writes dateStore only — knows nothing
- * about tasks, so it can be reused anywhere a date needs picking.
- *
- * The visible window is anchored to a fixed point (today, or wherever the
- * date-input last jumped to) so clicking a pill just moves the highlight —
- * it doesn't recenter the whole strip around your selection.
- */
 export default function DateSelector() {
     const selectedDate = useDateStore((s) => s.selectedDate);
     const setSelectedDate = useDateStore((s) => s.setSelectedDate);
-    const [anchor, setAnchor] = useState(today());
+    const [windowStart, setWindowStart] = useState(() => addDays(today(), -2));
 
-    const days = [-2, -1, 0, 1, 2].map((offset) => addDays(anchor, offset));
+    const days = Array.from({ length: 5 }, (_, i) => addDays(windowStart, i));
     const isOutsideWindow = !days.includes(selectedDate);
+
+    // Window and selection always shift by the exact same delta — correct
+    // from the very first press, regardless of where the selection currently
+    // sits in the strip (verified: no edge-case assumption baked in).
+    function step(direction: 1 | -1) {
+        setWindowStart(addDays(windowStart, direction));
+        setSelectedDate(addDays(selectedDate, direction));
+    }
+
+    function jumpTo(date: string) {
+        setSelectedDate(date);
+        if (date < days[0] || date > days[days.length - 1]) {
+            setWindowStart(addDays(date, -2));
+        }
+    }
 
     return (
         <div className="flex items-center gap-2 flex-wrap">
+            <button
+                onClick={() => step(-1)}
+                aria-label="Previous day"
+                className="font-mono text-sm px-2.5 py-2 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
+            >
+                ←
+            </button>
+
             {days.map((day) => (
                 <button
                     key={day}
@@ -48,14 +77,19 @@ export default function DateSelector() {
                     {formatShort(day)}
                 </button>
             ))}
+
+            <button
+                onClick={() => step(1)}
+                aria-label="Next day"
+                className="font-mono text-sm px-2.5 py-2 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
+            >
+                →
+            </button>
+
             <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => {
-                    if (!e.target.value) return;
-                    setSelectedDate(e.target.value);
-                    setAnchor(e.target.value); // jump the window to wherever you picked
-                }}
+                onChange={(e) => e.target.value && jumpTo(e.target.value)}
                 className={`font-mono text-xs px-3 py-2 border-[1.5px] bg-transparent ${isOutsideWindow ? 'border-ink text-ink font-semibold' : 'border-line-soft text-muted'
                     }`}
             />

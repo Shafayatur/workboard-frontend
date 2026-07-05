@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import {
     DndContext,
     DragEndEvent,
+    DragStartEvent,
+    DragOverlay,
     PointerSensor,
     useSensor,
     useSensors,
@@ -12,6 +14,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import Column from './Column';
 import TaskModal from './TaskModal';
+import { TaskCardVisual } from './TaskCard';
 import { useTaskStore } from '@/store/taskStore';
 import { useDateStore } from '@/store/dateStore';
 import { Task, TaskStatus } from '@/types/task';
@@ -29,6 +32,7 @@ export default function Board() {
 
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [activeTask, setActiveTask] = useState<Task | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -53,19 +57,25 @@ export default function Board() {
         setModalOpen(true);
     }
 
+    function handleDragStart(event: DragStartEvent) {
+        const task = tasks.find((t) => t.id === Number(event.active.id));
+        setActiveTask(task ?? null);
+    }
+
     function handleDragEnd(event: DragEndEvent) {
+        setActiveTask(null);
         const { active, over } = event;
         if (!over) return;
 
         const activeId = Number(active.id);
-        const activeTask = tasks.find((t) => t.id === activeId);
-        if (!activeTask) return;
+        const activeTaskItem = tasks.find((t) => t.id === activeId);
+        if (!activeTaskItem) return;
 
         const overId = over.id;
         const isColumnId = COLUMNS.some((c) => c.status === overId);
         const destStatus: TaskStatus = isColumnId
             ? (overId as TaskStatus)
-            : tasks.find((t) => t.id === Number(overId))?.status ?? activeTask.status;
+            : tasks.find((t) => t.id === Number(overId))?.status ?? activeTaskItem.status;
 
         const destList = tasksByStatus[destStatus].filter((t) => t.id !== activeId);
         let insertIndex = destList.length;
@@ -74,9 +84,13 @@ export default function Board() {
             if (overIndex !== -1) insertIndex = overIndex;
         }
         const reordered =
-            destStatus === activeTask.status
-                ? arrayMove(tasksByStatus[destStatus], tasksByStatus[destStatus].findIndex((t) => t.id === activeId), insertIndex)
-                : [...destList.slice(0, insertIndex), activeTask, ...destList.slice(insertIndex)];
+            destStatus === activeTaskItem.status
+                ? arrayMove(
+                    tasksByStatus[destStatus],
+                    tasksByStatus[destStatus].findIndex((t) => t.id === activeId),
+                    insertIndex
+                )
+                : [...destList.slice(0, insertIndex), activeTaskItem, ...destList.slice(insertIndex)];
 
         reordered.forEach((task, index) => {
             if (task.status !== destStatus || task.order !== index || task.id === activeId) {
@@ -96,7 +110,12 @@ export default function Board() {
                 </button>
             </div>
 
-            <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {COLUMNS.map((col) => (
                         <Column
@@ -108,6 +127,17 @@ export default function Board() {
                         />
                     ))}
                 </div>
+
+                <DragOverlay>
+                    {activeTask && (
+                        <div
+                            className={`relative bg-paper border-[1.5px] px-4 py-3 shadow-lg cursor-grabbing ${activeTask.status === 'done' ? 'bg-green-wash border-green' : 'border-ink'
+                                }`}
+                        >
+                            <TaskCardVisual task={activeTask} selectedDate={selectedDate} interactive={false} />
+                        </div>
+                    )}
+                </DragOverlay>
             </DndContext>
 
             <TaskModal
