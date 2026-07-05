@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
-import { Task } from '@/types/task';
+import { Task, TaskCreateInput } from '@/types/task';
 
 interface TaskState {
   tasks: Task[];
@@ -8,8 +8,12 @@ interface TaskState {
   error: string | null;
   fetchTasksForDate: (date: string) => Promise<void>;
   moveTask: (id: number, status: Task['status'], order: number) => Promise<void>;
+  createTask: (input: TaskCreateInput) => Promise<void>;
+  updateTask: (id: number, input: Partial<TaskCreateInput>) => Promise<void>;
+  deleteTask: (id: number) => Promise<void>;
   upsertTaskLocal: (task: Task) => void;
   removeTaskLocal: (id: number) => void;
+  clearError: () => void;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -28,7 +32,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   moveTask: async (id, status, order) => {
-    // optimistic update
     const prev = get().tasks;
     set({
       tasks: prev.map((t) => (t.id === id ? { ...t, status, order } : t)),
@@ -37,6 +40,38 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       await api.patch(`/tasks/${id}/reorder/`, { status, order });
     } catch {
       set({ tasks: prev, error: 'Could not move task — reverted.' });
+    }
+  },
+
+  createTask: async (input) => {
+    set({ error: null });
+    try {
+      const { data } = await api.post<Task>('/tasks/', input);
+      set({ tasks: [...get().tasks, data] });
+    } catch {
+      set({ error: 'Could not create task.' });
+      throw new Error('create-failed');
+    }
+  },
+
+  updateTask: async (id, input) => {
+    set({ error: null });
+    try {
+      const { data } = await api.patch<Task>(`/tasks/${id}/`, input);
+      get().upsertTaskLocal(data);
+    } catch {
+      set({ error: 'Could not update task.' });
+      throw new Error('update-failed');
+    }
+  },
+
+  deleteTask: async (id) => {
+    const prev = get().tasks;
+    set({ tasks: prev.filter((t) => t.id !== id) });
+    try {
+      await api.delete(`/tasks/${id}/`);
+    } catch {
+      set({ tasks: prev, error: 'Could not delete task — restored.' });
     }
   },
 
@@ -50,4 +85,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   removeTaskLocal: (id) => set({ tasks: get().tasks.filter((t) => t.id !== id) }),
+
+  clearError: () => set({ error: null }),
 }));
