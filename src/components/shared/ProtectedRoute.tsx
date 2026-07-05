@@ -4,16 +4,29 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAuthenticated } from '@/lib/auth';
 
+type AuthStatus = 'checking' | 'authed' | 'unauthed';
+
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  // Read auth synchronously on first render so we don't flash protected
-  // content before the effect below has a chance to redirect.
-  const [authed] = useState(() => isAuthenticated());
+  // Both server and the client's very first render show 'checking' — identical
+  // output on both sides, so there's nothing for hydration to mismatch on.
+  // The real check only happens after mount, inside the effect below.
+  const [status, setStatus] = useState<AuthStatus>('checking');
 
   useEffect(() => {
-    if (!authed) router.replace('/login');
-  }, [authed, router]);
+    // This IS "subscribing to an external system" (localStorage) per the
+    // rule's own guidance; it can't run during render because localStorage
+    // isn't available during SSR, which is the whole point of this component.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (isAuthenticated()) {
+      setStatus('authed');
+    } else {
+      setStatus('unauthed');
+      router.replace('/login');
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [router]);
 
-  if (!authed) return null;
+  if (status !== 'authed') return null;
   return <>{children}</>;
 }

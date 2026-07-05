@@ -24,8 +24,7 @@ export default function TagPicker({ selectedIds, onChange }: TagPickerProps) {
         onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
     }
 
-    async function handleCreate(e: React.FormEvent) {
-        e.preventDefault();
+    async function handleCreate() {
         if (!newName.trim()) return;
         setCreating(true);
         try {
@@ -63,21 +62,30 @@ export default function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                     );
                 })}
             </div>
-            <form onSubmit={handleCreate} className="flex gap-2">
+            {/* Not a <form> — this lives inside TaskModal's own <form>, and HTML
+          doesn't allow nested forms (causes a hydration error). */}
+            <div className="flex gap-2">
                 <input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCreate();
+                        }
+                    }}
                     placeholder="New tag"
                     className="flex-1 border-[1.5px] border-line-soft px-2.5 py-1.5 text-xs outline-none focus:border-ink"
                 />
                 <button
-                    type="submit"
+                    type="button"
+                    onClick={handleCreate}
                     disabled={creating || !newName.trim()}
                     className="font-mono text-[11px] px-3 border-[1.5px] border-ink disabled:opacity-40"
                 >
                     Add
                 </button>
-            </form>
+            </div>
         </div>
     );
 }

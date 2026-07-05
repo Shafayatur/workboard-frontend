@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { useDateStore } from '@/store/dateStore';
 import { Task, TaskCreateInput } from '@/types/task';
 
 interface TaskState {
@@ -14,6 +15,10 @@ interface TaskState {
   upsertTaskLocal: (task: Task) => void;
   removeTaskLocal: (id: number) => void;
   clearError: () => void;
+}
+
+function belongsToVisibleDate(task: Task): boolean {
+  return task.due_date === useDateStore.getState().selectedDate;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -47,7 +52,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ error: null });
     try {
       const { data } = await api.post<Task>('/tasks/', input);
-      set({ tasks: [...get().tasks, data] });
+      // Only show it on the board if it actually belongs to the day you're viewing.
+      if (belongsToVisibleDate(data)) {
+        set({ tasks: [...get().tasks, data] });
+      }
     } catch {
       set({ error: 'Could not create task.' });
       throw new Error('create-failed');
@@ -58,7 +66,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ error: null });
     try {
       const { data } = await api.patch<Task>(`/tasks/${id}/`, input);
-      get().upsertTaskLocal(data);
+      if (belongsToVisibleDate(data)) {
+        get().upsertTaskLocal(data);
+      } else {
+        // Edited to a different date — it no longer belongs on this board.
+        get().removeTaskLocal(id);
+      }
     } catch {
       set({ error: 'Could not update task.' });
       throw new Error('update-failed');
