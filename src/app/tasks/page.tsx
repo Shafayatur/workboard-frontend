@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import ProtectedRoute from '@/components/shared/ProtectedRoute';
 import DateSelector from '@/components/tasks/DateSelector';
+import QuickAddTask from '@/components/tasks/QuickAddTask';
 import Board from '@/components/tasks/Board';
 import { useDateStore } from '@/store/dateStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -38,7 +39,10 @@ function TasksContent() {
       {isLoading ? (
         <p className="font-mono text-xs text-muted">Loading tasks…</p>
       ) : (
-        <Board />
+        <>
+          <QuickAddTask />
+          <Board />
+        </>
       )}
     </main>
   );

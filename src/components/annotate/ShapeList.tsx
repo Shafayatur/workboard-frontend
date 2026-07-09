@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useAnnotationStore } from '@/store/annotationStore';
 import { AnnotateImage } from '@/types/image';
 
@@ -9,11 +10,25 @@ interface ShapeListProps {
 
 export default function ShapeList({ image }: ShapeListProps) {
     const deleteShape = useAnnotationStore((s) => s.deleteShape);
+    const updateShapeLabel = useAnnotationStore((s) => s.updateShapeLabel);
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [draftLabel, setDraftLabel] = useState('');
 
     async function handleDelete(shapeId: number) {
         if (confirm('Delete this shape?')) {
             await deleteShape(image.id, shapeId);
         }
+    }
+
+    function startEditing(shapeId: number, currentLabel: string) {
+        setEditingId(shapeId);
+        setDraftLabel(currentLabel);
+    }
+
+    async function saveLabel(shapeId: number) {
+        const label = draftLabel.trim();
+        setEditingId(null);
+        await updateShapeLabel(image.id, shapeId, label);
     }
 
     return (
@@ -28,18 +43,36 @@ export default function ShapeList({ image }: ShapeListProps) {
                 {image.shapes.map((shape, i) => (
                     <div
                         key={shape.id}
-                        className="flex items-center justify-between border-[1.5px] border-line-soft px-3 py-2"
+                        className="flex items-center justify-between border-[1.5px] border-line-soft px-3 py-2 gap-2"
                     >
-                        <span className="flex items-center gap-2 text-xs">
-                            <span
-                                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: shape.color }}
+                        <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: shape.color }}
+                        />
+                        {editingId === shape.id ? (
+                            <input
+                                autoFocus
+                                value={draftLabel}
+                                onChange={(e) => setDraftLabel(e.target.value)}
+                                onBlur={() => saveLabel(shape.id)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveLabel(shape.id);
+                                    if (e.key === 'Escape') setEditingId(null);
+                                }}
+                                className="flex-1 text-xs border-b border-ink outline-none bg-transparent"
                             />
-                            {shape.label || `Region ${String(i + 1).padStart(2, '0')}`}
-                        </span>
+                        ) : (
+                            <button
+                                onClick={() => startEditing(shape.id, shape.label)}
+                                className="flex-1 text-left text-xs hover:underline truncate"
+                                title="Click to rename"
+                            >
+                                {shape.label || `Region ${String(i + 1).padStart(2, '0')}`}
+                            </button>
+                        )}
                         <button
                             onClick={() => handleDelete(shape.id)}
-                            className="font-mono text-[11px] text-muted hover:text-red"
+                            className="font-mono text-[11px] text-muted hover:text-red flex-shrink-0"
                             aria-label="Delete shape"
                         >
                             ✕

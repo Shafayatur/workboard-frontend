@@ -16,6 +16,7 @@ interface AnnotationCanvasProps {
 export default function AnnotationCanvas({ image }: AnnotationCanvasProps) {
     const createShape = useAnnotationStore((s) => s.createShape);
     const deleteShape = useAnnotationStore((s) => s.deleteShape);
+    const suggestLabel = useAnnotationStore((s) => s.suggestLabel);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
@@ -25,11 +26,13 @@ export default function AnnotationCanvas({ image }: AnnotationCanvasProps) {
     const [isDrawing, setIsDrawing] = useState(false);
     const [draftPoints, setDraftPoints] = useState<Point[]>([]);
     const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
+    const [isLabeling, setIsLabeling] = useState(false);
 
     const imgEl = loadedImage?.src === image.file ? loadedImage.img : null;
 
     useEffect(() => {
         const img = new window.Image();
+        img.crossOrigin = 'anonymous'; // required so the canvas crop below isn't tainted
         img.src = image.file;
         img.onload = () => setLoadedImage({ src: image.file, img });
     }, [image.file]);
@@ -75,12 +78,62 @@ export default function AnnotationCanvas({ image }: AnnotationCanvasProps) {
         ]);
     }
 
-    function finishPolygon() {
-        if (draftPoints.length >= 3) {
-            createShape(image.id, draftPoints);
+    // Crops the exact polygon (not just its bounding box) out of the FULL
+    // resolution source image — so the AI sees a clean, focused region rather
+    // than whatever's around it, and rather than the downscaled display size.
+    function cropPolygonToBase64(points: Point[]): string | null {
+        if (!imgEl) return null;
+        const { naturalWidth: W, naturalHeight: H } = imgEl;
+
+        const xs = points.map((p) => p.x * W);
+        const ys = points.map((p) => p.y * H);
+        const minX = Math.max(0, Math.min(...xs));
+        const minY = Math.max(0, Math.min(...ys));
+        const maxX = Math.min(W, Math.max(...xs));
+        const maxY = Math.min(H, Math.max(...ys));
+        const cropW = Math.max(1, Math.round(maxX - minX));
+        const cropH = Math.max(1, Math.round(maxY - minY));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = cropW;
+        canvas.height = cropH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+
+        ctx.beginPath();
+        points.forEach((p, i) => {
+            const px = p.x * W - minX;
+            const py = p.y * H - minY;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.clip();
+
+        ctx.drawImage(imgEl, -minX, -minY);
+
+        try {
+            return canvas.toDataURL('image/png');
+        } catch {
+            return null;
         }
+    }
+
+    async function finishPolygon() {
+        const points = draftPoints;
         setDraftPoints([]);
         setIsDrawing(false);
+        if (points.length < 3) return;
+
+        setIsLabeling(true);
+        let label = '';
+        try {
+            const cropped = cropPolygonToBase64(points);
+            if (cropped) label = await suggestLabel(cropped);
+        } finally {
+            setIsLabeling(false);
+        }
+        await createShape(image.id, points, label);
     }
 
     function undoLastPoint() {
@@ -135,6 +188,12 @@ export default function AnnotationCanvas({ image }: AnnotationCanvasProps) {
                     >
                         ⌫ Delete selected shape
                     </button>
+                )}
+                {isLabeling && (
+                    <span className="font-mono text-[11px] px-3 py-1.5 text-muted flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red animate-pulse" />
+                        AI is labeling…
+                    </span>
                 )}
             </div>
 

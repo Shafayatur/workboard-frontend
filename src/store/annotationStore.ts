@@ -14,6 +14,8 @@ interface AnnotationState {
   deleteImage: (id: number) => Promise<void>;
   setActiveImage: (id: number) => void;
   createShape: (imageId: number, points: Point[], label?: string) => Promise<void>;
+  suggestLabel: (imageBase64: string) => Promise<string>;
+  updateShapeLabel: (imageId: number, shapeId: number, label: string) => Promise<void>;
   deleteShape: (imageId: number, shapeId: number) => Promise<void>;
   addShapeLocal: (imageId: number, shape: Shape) => void;
   removeShapeLocal: (imageId: number, shapeId: number) => void;
@@ -85,6 +87,33 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       get().addShapeLocal(imageId, data);
     } catch {
       set({ error: 'Could not save shape.' });
+    }
+  },
+
+  suggestLabel: async (imageBase64) => {
+    try {
+      const { data } = await api.post<{ label: string }>('/annotate/suggest-label/', {
+        image_base64: imageBase64,
+      });
+      return data.label;
+    } catch {
+      return ''; // non-fatal — shape still saves, just without an AI label
+    }
+  },
+
+  updateShapeLabel: async (imageId, shapeId, label) => {
+    const prev = get().images;
+    set({
+      images: prev.map((img) =>
+        img.id === imageId
+          ? { ...img, shapes: img.shapes.map((s) => (s.id === shapeId ? { ...s, label } : s)) }
+          : img
+      ),
+    });
+    try {
+      await api.patch(`/shapes/${shapeId}/`, { label });
+    } catch {
+      set({ images: prev, error: 'Could not rename shape — reverted.' });
     }
   },
 

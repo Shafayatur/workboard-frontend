@@ -1,15 +1,18 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { parseTaskText } from '@/lib/ai';
 import { useDateStore } from '@/store/dateStore';
 import { Task, TaskCreateInput } from '@/types/task';
 
 interface TaskState {
   tasks: Task[];
   isLoading: boolean;
+  isQuickAdding: boolean;
   error: string | null;
   fetchTasksForDate: (date: string) => Promise<void>;
   moveTask: (id: number, status: Task['status'], order: number) => Promise<void>;
   createTask: (input: TaskCreateInput) => Promise<void>;
+  quickAddTask: (text: string) => Promise<void>;
   updateTask: (id: number, input: Partial<TaskCreateInput>) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   upsertTaskLocal: (task: Task) => void;
@@ -24,6 +27,7 @@ function belongsToVisibleDate(task: Task): boolean {
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   isLoading: false,
+  isQuickAdding: false,
   error: null,
 
   fetchTasksForDate: async (date) => {
@@ -52,13 +56,29 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ error: null });
     try {
       const { data } = await api.post<Task>('/tasks/', input);
-      // Only show it on the board if it actually belongs to the day you're viewing.
       if (belongsToVisibleDate(data)) {
         set({ tasks: [...get().tasks, data] });
       }
     } catch {
       set({ error: 'Could not create task.' });
       throw new Error('create-failed');
+    }
+  },
+
+  quickAddTask: async (text) => {
+    set({ isQuickAdding: true, error: null });
+    try {
+      const today = useDateStore.getState().selectedDate;
+      const parsed = await parseTaskText(text, today);
+      await get().createTask({
+        title: parsed.title,
+        due_date: parsed.due_date,
+        priority: parsed.priority,
+      });
+    } catch {
+      set({ error: 'Could not understand that — try rephrasing, or use "+ New task" instead.' });
+    } finally {
+      set({ isQuickAdding: false });
     }
   },
 
@@ -69,7 +89,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       if (belongsToVisibleDate(data)) {
         get().upsertTaskLocal(data);
       } else {
-        // Edited to a different date — it no longer belongs on this board.
         get().removeTaskLocal(id);
       }
     } catch {
