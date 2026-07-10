@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useDateStore } from '@/store/dateStore';
 
-// Parse/format using local date components (not UTC) so day math never
-// shifts by a day depending on timezone.
 function parseDate(dateStr: string): Date {
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -40,9 +38,6 @@ export default function DateSelector() {
     const days = Array.from({ length: 5 }, (_, i) => addDays(windowStart, i));
     const isOutsideWindow = !days.includes(selectedDate);
 
-    // Window and selection always shift by the exact same delta — correct
-    // from the very first press, regardless of where the selection currently
-    // sits in the strip (verified: no edge-case assumption baked in).
     function step(direction: 1 | -1) {
         setWindowStart(addDays(windowStart, direction));
         setSelectedDate(addDays(selectedDate, direction));
@@ -56,41 +51,43 @@ export default function DateSelector() {
     }
 
     return (
-        <div className="flex items-center gap-2 flex-wrap">
-            <button
-                onClick={() => step(-1)}
-                aria-label="Previous day"
-                className="font-mono text-sm px-2.5 py-2 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
-            >
-                ←
-            </button>
-
-            {days.map((day) => (
+        <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
-                    key={day}
-                    onClick={() => setSelectedDate(day)}
-                    className={`font-mono text-xs px-3.5 py-2 border-[1.5px] transition-colors ${day === selectedDate
-                            ? 'border-ink text-ink font-semibold'
-                            : 'border-line-soft text-muted hover:border-ink/40'
-                        }`}
+                    onClick={() => step(-1)}
+                    aria-label="Previous day"
+                    className="flex-shrink-0 font-mono text-sm px-2.5 py-2 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
                 >
-                    {formatShort(day)}
+                    ←
                 </button>
-            ))}
 
-            <button
-                onClick={() => step(1)}
-                aria-label="Next day"
-                className="font-mono text-sm px-2.5 py-2 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
-            >
-                →
-            </button>
+                {days.map((day) => (
+                    <button
+                        key={day}
+                        onClick={() => setSelectedDate(day)}
+                        className={`flex-shrink-0 font-mono text-xs px-3.5 py-2 border-[1.5px] transition-colors ${day === selectedDate
+                                ? 'border-ink text-ink font-semibold'
+                                : 'border-line-soft text-muted hover:border-ink/40'
+                            }`}
+                    >
+                        {formatShort(day)}
+                    </button>
+                ))}
+
+                <button
+                    onClick={() => step(1)}
+                    aria-label="Next day"
+                    className="flex-shrink-0 font-mono text-sm px-2.5 py-2 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
+                >
+                    →
+                </button>
+            </div>
 
             <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => e.target.value && jumpTo(e.target.value)}
-                className={`font-mono text-xs px-3 py-2 border-[1.5px] bg-transparent ${isOutsideWindow ? 'border-ink text-ink font-semibold' : 'border-line-soft text-muted'
+                className={`flex-shrink-0 font-mono text-xs px-3 py-2 border-[1.5px] bg-transparent ${isOutsideWindow ? 'border-ink text-ink font-semibold' : 'border-line-soft text-muted'
                     }`}
             />
         </div>

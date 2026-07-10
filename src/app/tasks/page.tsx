@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import ProtectedRoute from '@/components/shared/ProtectedRoute';
 import DateSelector from '@/components/tasks/DateSelector';
-import QuickAddTask from '@/components/tasks/QuickAddTask';
 import Board from '@/components/tasks/Board';
 import { useDateStore } from '@/store/dateStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -12,12 +11,15 @@ function TasksContent() {
   const selectedDate = useDateStore((s) => s.selectedDate);
   const fetchTasksForDate = useTaskStore((s) => s.fetchTasksForDate);
   const isLoading = useTaskStore((s) => s.isLoading);
+  const tasks = useTaskStore((s) => s.tasks);
   const error = useTaskStore((s) => s.error);
   const clearError = useTaskStore((s) => s.clearError);
 
   useEffect(() => {
     fetchTasksForDate(selectedDate);
   }, [selectedDate, fetchTasksForDate]);
+
+  const isFirstLoad = isLoading && tasks.length === 0;
 
   return (
     <main className="flex-1 p-10 max-w-6xl mx-auto w-full">
@@ -36,13 +38,10 @@ function TasksContent() {
         </div>
       )}
 
-      {isLoading ? (
+      {isFirstLoad ? (
         <p className="font-mono text-xs text-muted">Loading tasks…</p>
       ) : (
-        <>
-          <QuickAddTask />
-          <Board />
-        </>
+        <Board />
       )}
     </main>
   );

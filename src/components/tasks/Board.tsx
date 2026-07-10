@@ -14,6 +14,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import Column from './Column';
 import TaskModal from './TaskModal';
+import QuickAddTask from './QuickAddTask';
 import { TaskCardVisual } from './TaskCard';
 import { useTaskStore } from '@/store/taskStore';
 import { useDateStore } from '@/store/dateStore';
@@ -101,12 +102,13 @@ export default function Board() {
 
     return (
         <div>
-            <div className="flex justify-end mb-6">
+            <div className="flex items-start gap-3 mb-6">
+                <QuickAddTask />
                 <button
                     onClick={openCreate}
-                    className="font-mono text-xs px-4 py-2 bg-ink text-paper hover:bg-red transition-colors"
+                    className="flex-shrink-0 font-mono text-[11px] px-3.5 py-3 border-[1.5px] border-line-soft text-muted hover:border-ink hover:text-ink transition-colors"
                 >
-                    + New task
+                    + Manual
                 </button>
             </div>
 
