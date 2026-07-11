@@ -18,6 +18,18 @@ const PRIORITY_CLASSES: Record<Task['priority'], string> = {
     low: 'border border-line-soft text-muted',
 };
 
+function todayStr(): string {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function isOverdue(task: Task): boolean {
+    return task.status !== 'done' && task.due_date < todayStr();
+}
+
 export function TaskCardVisual({
     task,
     selectedDate,
@@ -92,6 +104,11 @@ export function TaskCardVisual({
             <h4 className="text-[13.5px] font-semibold mb-2 pr-6">{task.title}</h4>
 
             <div className="flex items-center gap-1.5 flex-wrap">
+                {isOverdue(task) && (
+                    <span className="font-mono text-[10px] px-2 py-0.5 bg-red text-white font-semibold">
+                        overdue
+                    </span>
+                )}
                 <span className={`font-mono text-[10px] px-2 py-0.5 ${PRIORITY_CLASSES[task.priority]}`}>
                     {task.priority}
                 </span>
@@ -163,7 +180,11 @@ export default function TaskCard({ task, onEdit }: TaskCardProps) {
             style={style}
             {...attributes}
             {...listeners}
-            className={`relative bg-paper border-[1.5px] px-4 py-3 cursor-grab active:cursor-grabbing group ${isDone ? 'bg-green-wash border-green' : 'border-line'
+            className={`relative bg-paper border-[1.5px] px-4 py-3 cursor-grab active:cursor-grabbing group ${isDone
+                    ? 'bg-green-wash border-green'
+                    : isOverdue(task)
+                        ? 'border-line border-l-4 border-l-red'
+                        : 'border-line'
                 }`}
         >
             <TaskCardVisual
