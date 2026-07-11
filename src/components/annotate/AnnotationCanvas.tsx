@@ -221,7 +221,7 @@ export default function AnnotationCanvas({ image }: AnnotationCanvasProps) {
                                         onClick={(e) => {
                                             if (isDrawing) return;
                                             e.cancelBubble = true;
-                                            setSelectedShapeId(shape.id);
+                                            setSelectedShapeId(isSelected ? null : shape.id);
                                         }}
                                     />
                                 );

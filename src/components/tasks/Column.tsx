@@ -24,7 +24,7 @@ export default function Column({ status, label, tasks, onEditTask }: ColumnProps
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div
                     ref={setNodeRef}
-                    className={`border-[1.5px] border-dashed min-h-[220px] p-2.5 flex flex-col gap-2.5 transition-colors ${isOver ? 'border-red bg-red-wash/30' : 'border-line-soft'
+                    className={`border-[1.5px] border-dashed min-h-[110px] p-2.5 flex flex-col gap-2.5 transition-colors ${isOver ? 'border-red bg-red-wash/30' : 'border-line-soft'
                         }`}
                 >
                     {tasks.length === 0 && (
